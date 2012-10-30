@@ -1,0 +1,21 @@
+[AWS]
+; Optional access key. If not specified, then defaults to Boto's methods,
+; namely using the environment variables of the same names
+;AWS_ACCESS_KEY_ID=
+;AWS_SECRET_ACCESS_KEY=
+
+[Notification]
+; Where to send notifications
+email = 
+pushover = 
+template = Hello\nThe following buckets have no files modified in the last %age% days (since %since%):\n%failedbuckets%\n\nRegards,\nBackup-Bucket-Check
+
+[Buckets]
+; Buckets to ignore (exclude). Optionally, if include= is given, then only those buckets are checked
+;exclude = 
+;include = 
+age = 7	; Threshold, in days (required)
+
+; Advanced: Merge the following values into Boto's configuration
+;[Boto]
+;debug = 2
