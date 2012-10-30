@@ -9,6 +9,6 @@ was an excuse to dig into writing Python. And thus bucketcheck.py was born.
 TODO
 ====
  * Add a configuration file
- * Include/exclude backets
+ * Include/exclude buckets
  * Notifications (Email, Pushover)
  * Some more documentation
