@@ -1,22 +1,60 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
+from boto.s3.connection import S3Connection
 import boto
 from datetime import datetime
 from datetime import timedelta
+import ConfigParser
+import os
+import sys
+
+# Load the configuration
+Config = ConfigParser.SafeConfigParser()
+try:
+	Config.readfp(open("config.ini"))
+except IOError as e:
+	print "Error opening config.ini for reading. I/O error({0}): {1}".format(e.errno, e.strerror)
+	sys.exit(1)
+except ConfigParser.Error as e:
+	print "Error while parsing your config.ini", e
+	sys.exit(1)
 
 # Establish the "minimum date" (1 week ago) that all buckets need to be newer than
-minimum_date = datetime.today()-timedelta(weeks=1)
-print "Must be newer than:", minimum_date
+try:
+	min_age = Config.getint('Buckets', 'age')
+	minimum_date = datetime.today()-timedelta(days=min_age)
+	print "Must be newer than:", minimum_date
+except ConfigParser.Error as e:
+	print "No minimum/threshold age defined:", e
+	sys.exit(1)
 
-#boto.config.add_section('Boto')
-#boto.config.set('Boto', 'debug', '2')
+# Advanced use - include any [Boto] configs as configuration for boto
+if Config.has_section('Boto'):
+	print "Merging [Boto] from our configuration into boto's"
+	boto.config.add_section('Boto')
+	for k, v in Config.items('Boto'):
+		print "[Boto] Merging in "+k+"="+v
+		boto.config.set('Boto', k, v)
 
-conn = boto.connect_s3()
-rs = conn.get_all_buckets()
+# Connecting to AWS
+try:
+	conn = S3Connection( 
+		Config.get('AWS', 'AWS_ACCESS_KEY_ID'), \
+		Config.get('AWS', 'AWS_SECRET_ACCESS_KEY') \
+		)
+	print "Connected using AWS keys stored in config.ini"
+except ConfigParser.Error as e:
+	# Probably couldn't find the variables in Config, try using our helper method instead
+	conn = boto.connect_s3()
+	print "Connected using environment AWS keys"
 
-print "Inspecting", len(rs), "buckets."
 
-for b in rs:
-	print "Checking bucket:", b.name
+buckets = conn.get_all_buckets()
+
+print "Inspecting", len(buckets), "buckets."
+
+
+for bucket in buckets:
+	print "Checking bucket:", bucket.name
 	
 	# Initialize
 	last_mod = 0
@@ -26,8 +64,8 @@ for b in rs:
 	If the file is new enough, we're done (break)
 	If the file is not new enough, make a note (last_mod) so we can check post-loop, and move on
 	"""
-	for k in b.list():
-		#print b.name, "::", k.name, "::", k.last_modified
+	for k in bucket.list():
+		#print bucket.name, "::", k.name, "::", k.last_modified
 		# Initialize if needed
 		if not last_mod:
 			last_mod = k
@@ -49,5 +87,5 @@ for b in rs:
 	lm = datetime.strptime(last_mod.last_modified, "%Y-%m-%dT%H:%M:%S.%fZ")
 	# Perform the comparison
 	if lm < minimum_date:
-		print "!!! Error, " + b.name + " has no keys modified since", minimum_date
+		print "!!! Error, " + bucket.name + " has no keys modified since", minimum_date
 
