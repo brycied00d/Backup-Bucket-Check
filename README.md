@@ -8,7 +8,13 @@ was an excuse to dig into writing Python. And thus bucketcheck.py was born.
 
 TODO
 ====
- * Add a configuration file
- * Include/exclude buckets
+ X Add a configuration file
+ X Include/exclude buckets
  * Notifications (Email, Pushover)
+  X Pushover
+  * Email
  * Some more documentation
+ * Command line options
+  * Specify a configuration file
+  * Debug/verbosity
+  

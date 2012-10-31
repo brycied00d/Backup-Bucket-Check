@@ -8,10 +8,13 @@
 ; Where to send notifications
 email = 
 pushover = 
-template = Hello\nThe following buckets have no files modified in the last %age% days (since %since%):\n%failedbuckets%\n\nRegards,\nBackup-Bucket-Check
+pushover_appkey = 
+; Uses Python's string.format(), so you could do some fancy formatting if you wanted
+template = Hello\nThe following buckets have no files modified in the last {age} days (since {since}):\n{failedbuckets}\nRegards,\nBackup-Bucket-Check
 
 [Buckets]
-; Buckets to ignore (exclude). Optionally, if include= is given, then only those buckets are checked
+; Comma-separated list of buckets to ignore (exclude).
+; Optionally, if include= is given, then only those buckets are checked
 ;exclude = 
 ;include = 
 age = 7	; Threshold, in days (required)
