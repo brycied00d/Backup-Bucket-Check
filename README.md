@@ -14,7 +14,9 @@ TODO
   X Pushover
   * Email
  * Some more documentation
- * Command line options
-  * Specify a configuration file
-  * Debug/verbosity
-  
+ X Command line options
+  X Specify a configuration file
+  X Debug/verbosity
+ * Code cleanup
+  X Move login into main()
+  * Refactor into smaller, modular methods

@@ -25,87 +25,6 @@ import ConfigParser
 import os
 import sys
 
-#parser = optparse.OptionParser()
-#(options, args) = parser.parse_args()
-
-# Load the configuration
-Config = ConfigParser.SafeConfigParser()
-try:
-	Config.readfp(open("config.ini"))
-except IOError as e:
-	print "Error opening config.ini for reading. I/O error({0}): {1}".format(e.errno, e.strerror)
-	sys.exit(1)
-except ConfigParser.Error as e:
-	print "Error while parsing your config.ini: %s" % e
-	sys.exit(1)
-
-# Establish the "minimum date" (1 week ago) that all buckets need to be newer than
-try:
-	min_age = Config.getint('Buckets', 'age')
-	minimum_date = datetime.today()-timedelta(days=min_age)
-	print "Must be newer than %s" % minimum_date
-except ConfigParser.Error as e:
-	print "Error! No minimum/threshold age defined: %s" % e
-	sys.exit(1)
-
-# Load urllib/httplib only if the user's configured Pushover notifications
-try:
-	pushover_appkey = False
-	pushover_user = False
-	pushover_appkey = Config.get('Notification', 'pushover_appkey')
-	pushover_user = Config.get('Notification', 'pushover')
-	import httplib, urllib
-	print "Pushover support loaded."
-except ConfigParser.Error as e:
-	# Quietly pass through if Pushover isn't configured
-	pass
-
-# Load the smtp stuff only if the user's configured an email address
-try:
-	email = False
-	## Probably need _to, _from, maybe _subject
-	email = Config.get('Notification', 'email')
-	#import httplib, urllib
-	print "Email support loaded."
-except ConfigParser.Error as e:
-	# Quietly pass through if Pushover isn't configured
-	pass
-
-
-# Advanced use - include any [Boto] configs as configuration for boto
-if Config.has_section('Boto'):
-	print "Merging [Boto] from our configuration into boto's"
-	boto.config.add_section('Boto')
-	for k, v in Config.items('Boto'):
-		print "[Boto] Merging in %s=%s" % (k, v)
-		boto.config.set('Boto', k, v)
-
-# Connecting to AWS
-try:
-	conn = S3Connection( \
-		Config.get('AWS', 'AWS_ACCESS_KEY_ID'), \
-		Config.get('AWS', 'AWS_SECRET_ACCESS_KEY') \
-		)
-	print "Connected using AWS keys stored in config.ini"
-except ConfigParser.Error as e:
-	# Probably couldn't find the variables in Config, try using our helper method instead
-	conn = boto.connect_s3()
-	print "Connected using environment AWS keys"
-
-# Read in the ex/include from Config
-buckets_exclude = []
-try:
-	for entry in Config.get('Buckets', 'exclude').split(','):
-		buckets_exclude.append(entry.strip())
-except Exception as e:
-	pass
-print "Excluding: %s" % buckets_exclude
-
-buckets_include = []# 'com.cobryce.backups.vps2' ]
-
-# Track the buckets that failed the check
-buckets_error = []
-
 def iso8601_to_datetime(iso8601):
 	return datetime.strptime(iso8601, "%Y-%m-%dT%H:%M:%S.%fZ")
 
@@ -120,9 +39,11 @@ def check_bucket(bucket):
 		num_files += 1	# Informational
 		lm = iso8601_to_datetime(k.last_modified)	# Parse S3's response in ISO8601 into datetime
 		if lm > minimum_date:	# Is k.last_modified newer (younger) than min_age?
-			print "Checked %d files (keys) and found a match." % num_files
+			if options.verbose:
+				print "Checked %d files (keys) and found a match." % num_files
 			return True
-	print "Checked %d files (keys) without a match." % num_files
+	if options.verbose:
+		print "Checked %d files (keys) without a match." % num_files
 	return False
 
 def get_youngest_key_in_bucket(bucket):
@@ -137,68 +58,201 @@ def get_youngest_key_in_bucket(bucket):
 			youngest = k
 	return youngest
 
-if len(buckets_include):
-	print "Checking only the %d buckets defined in include=" % len(buckets_include)
-	for bucket_include in buckets_include:
-		if bucket_include in buckets_exclude:
-			print "Skipping bucket %s due to exclude=" % bucket_include
-			continue
-		print "Checking bucket %s" % bucket_include
-		bucket = conn.get_bucket(bucket_include)
-		if not check_bucket(bucket):
-			print "Error! Bucket %s failed check, no keys modified since %s." % (bucket_include, minimum_date)
-			buckets_error.append(bucket_include)
-		else:
-			print "Bucket %s passed check." % bucket_include
-else:
-	buckets = conn.get_all_buckets()
-	print "Inspecting %d buckets (pre-exclude)" % len(buckets)
-	for bucket in buckets:
-		if bucket.name in buckets_exclude:
-			print "Skipping bucket %s" % bucket.name
-			continue
-		print "Checking bucket %s" % bucket.name
-		if not check_bucket(bucket):
-			print "Error! Bucket %s failed check, no keys modified since %s." % (bucket.name, minimum_date)
-			buckets_error.append(bucket.name)
-		else:
-			print "Bucket %s passed check." % bucket.name
+def get_num_keys_in_bucket(bucket):
+	"""
+	Iterate through every key in .list() and increment a counter.
+	Return the total count of every key.
+	"""
+	num_files = 0	# Informational
+	for k in bucket.list():
+		num_files += 1	# Informational
+	return num_files
 
-print "Check complete, %d buckets failed." % len(buckets_error), buckets_error
-
-# Build the 
-buckets_error_string = ""
-for b in buckets_error:
-	buckets_error_string += " * %s (%s)\\n" % (b, \
-		iso8601_to_datetime(\
-			get_youngest_key_in_bucket(\
-				conn.get_bucket(b) \
-			).last_modified \
-			) \
-		)
-message = Config.get('Notification', 'template').\
-			format(since=minimum_date, age=min_age, failedbuckets=buckets_error_string)
-message = message.replace('\\n', "\n")
-print "Notification message:",message
-
-# Send notifications as appropriate
-if len(buckets_error):
-	if pushover_user and pushover_appkey:
-		try:
-			pushover = httplib.HTTPSConnection("api.pushover.net:443")
-			pushover.request("POST", "/1/messages.json",
-				urllib.urlencode({
-					"token": pushover_appkey,
-					"user": pushover_user,
-					"message": message,
-					}),
-				{ "Content-type": "application/x-www-form-urlencoded" }
-				)
-			conn.getresponse()
-		except Exception as e:
-			print "Exception while pushing notification to Pushover: %s", e
-			pass
+def main():
+	parser = optparse.OptionParser(usage="usage: %prog [options]", version="%prog 1.1")
+	parser.add_option("-v", "--verbose", 
+	                  action="count", dest="verbose", default=0,
+	                  help="More noise and stuff, repeat for higher levels")
+	parser.add_option("-c", "--config",
+	                  dest="configfile", default="config.ini", metavar="FILE",
+	                  help="Use the given configuration file rather than %default")
+	(options, args) = parser.parse_args()
 	
-	if email:
-		print "I'd send an email, if I knew how to. Sorry chap."
+	if options.verbose:
+		print "Verbosity set to %i" % options.verbose
 
+	# Load the configuration
+	Config = ConfigParser.SafeConfigParser()
+	try:
+		Config.readfp(open(options.configfile))
+	except IOError as e:
+		print "Error opening %s for reading. I/O error({0}): {1}".format(e.errno, e.strerror) % options.configfile
+		sys.exit(1)
+	except ConfigParser.Error as e:
+		print "Error while parsing your %s: %s" % (options.configfile, e)
+		sys.exit(1)
+	
+	# Establish the "minimum date" (1 week ago) that all buckets need to be newer than
+	try:
+		min_age = Config.getint('Buckets', 'age')
+		minimum_date = datetime.today()-timedelta(days=min_age)
+		if options.verbose:
+			print "Must be newer than %s" % minimum_date
+	except ConfigParser.Error as e:
+		print "Error! No minimum/threshold age defined: %s" % e
+		sys.exit(1)
+	
+	# Load urllib/httplib only if the user's configured Pushover notifications
+	try:
+		pushover_appkey = False
+		pushover_user = False
+		pushover_appkey = Config.get('Notification', 'pushover_appkey')
+		pushover_user = Config.get('Notification', 'pushover')
+		import httplib, urllib
+		if options.verbose >1:
+			print "Pushover support loaded."
+	except ConfigParser.Error as e:
+		# Quietly pass through if Pushover isn't configured
+		pass
+	
+	# Load the smtp stuff only if the user's configured an email address
+	try:
+		email = False
+		## Probably need _to, _from, maybe _subject
+		email = Config.get('Notification', 'email')
+		#import httplib, urllib
+		if options.verbose >1:
+			print "Email support loaded."
+	except ConfigParser.Error as e:
+		# Quietly pass through if Pushover isn't configured
+		pass
+	
+	# Advanced use - include any [Boto] configs as configuration for boto
+	if Config.has_section('Boto'):
+		if options.verbose >2:
+			print "Merging [Boto] from our configuration into boto's"
+		boto.config.add_section('Boto')
+		for k, v in Config.items('Boto'):
+			if options.verbose >2:
+				print "[Boto] Merging in %s=%s" % (k, v)
+			boto.config.set('Boto', k, v)
+	
+	# Connecting to AWS
+	try:
+		conn = S3Connection( \
+			Config.get('AWS', 'AWS_ACCESS_KEY_ID'), \
+			Config.get('AWS', 'AWS_SECRET_ACCESS_KEY') \
+			)
+		if options.verbose >1:
+			print "Connected using AWS keys stored in %s"  % options.configfile
+	except ConfigParser.Error as e:
+		# Probably couldn't find the variables in Config, try using our helper method instead
+		conn = boto.connect_s3()
+		if options.verbose >1:
+			print "Connected using environment AWS keys"
+	
+	# Read in the ex/include from Config
+	buckets_exclude = []
+	try:
+		for entry in Config.get('Buckets', 'exclude').split(','):
+			buckets_exclude.append(entry.strip())
+	except Exception as e:
+		pass
+	if options.verbose:
+		print "Excluding: %s" % buckets_exclude
+	
+	buckets_include = []
+	
+	# Track the buckets that failed the check
+	buckets_error = []
+	
+	if len(buckets_include):
+		if options.verbose:
+			print "Checking only the %d buckets defined in include=" % len(buckets_include)
+		for bucket_include in buckets_include:
+			if bucket_include in buckets_exclude:
+				if options.verbose:
+					print "Skipping bucket %s due to exclude=" % bucket_include
+				continue
+			if options.verbose:
+				print "Checking bucket %s" % bucket_include
+			bucket = conn.get_bucket(bucket_include)
+			if not check_bucket(bucket):
+				print "Error! Bucket %s failed check, no keys modified since %s." % (bucket_include, minimum_date)
+				buckets_error.append(bucket_include)
+			else:
+				if options.verbose:
+					print "Bucket %s passed check." % bucket_include
+			# Verbosity, I guess
+			if options.verbose >1:
+				print " * %s (%s)  %i keys.\n" % (bucket.name, iso8601_to_datetime( get_youngest_key_in_bucket(bucket).last_modified ), get_num_keys_in_bucket(bucket) )
+	else:
+		buckets = conn.get_all_buckets()
+		if options.verbose:
+			print "Inspecting %d buckets (pre-exclude)" % len(buckets)
+		for bucket in buckets:
+			if bucket.name in buckets_exclude:
+				if options.verbose:
+					print "Skipping bucket %s" % bucket.name
+				continue
+			if options.verbose:
+				print "Checking bucket %s" % bucket.name
+			if not check_bucket(bucket):
+				print "Error! Bucket %s failed check, no keys modified since %s." % (bucket.name, minimum_date)
+				buckets_error.append(bucket.name)
+			else:
+				if options.verbose:
+					print "Bucket %s passed check." % bucket.name
+			# Verbosity, I guess
+			if options.verbose > 1:
+				print " * %s (%s)  %i keys.\n" % (bucket.name, iso8601_to_datetime( get_youngest_key_in_bucket(bucket).last_modified ), get_num_keys_in_bucket(bucket) )
+	
+	if options.verbose:
+		print "Check complete, %d buckets failed." % len(buckets_error), buckets_error
+	
+	# Send notifications as appropriate
+	if len(buckets_error):
+		# Build the list of failed buckets
+		buckets_error_string = ""
+		for b in buckets_error:
+			buckets_error_string += " * %s (%s)\\n" % (b, \
+				iso8601_to_datetime(\
+					get_youngest_key_in_bucket(\
+						conn.get_bucket(b) \
+					).last_modified \
+					) \
+				)
+		message = Config.get('Notification', 'template').\
+					format(since=minimum_date, age=min_age, failedbuckets=buckets_error_string)
+		message = message.replace('\\n', "\n")
+		if options.verbose:
+			print "Notification message:",message
+		
+		if pushover_user and pushover_appkey:
+			try:
+				pushover = httplib.HTTPSConnection("api.pushover.net:443")
+				pushover.request("POST", "/1/messages.json",
+					urllib.urlencode({
+						"token": pushover_appkey,
+						"user": pushover_user,
+						"message": message,
+						}),
+					{ "Content-type": "application/x-www-form-urlencoded" }
+					)
+				conn.getresponse()
+			except Exception as e:
+				print "Exception while pushing notification to Pushover: %s", e
+				pass
+		
+		if email:
+			if options.verbose:
+				print "I'd send an email, if I knew how to. Sorry chap."
+		os.exit(1)
+	else:
+		if options.verbose:
+			print "All buckets are current."
+		os.exit(0)
+
+
+if __name__ == "__main__":
+    main()
