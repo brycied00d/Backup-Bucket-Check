@@ -247,11 +247,11 @@ def main():
 		if email:
 			if options.verbose:
 				print "I'd send an email, if I knew how to. Sorry chap."
-		os.exit(1)
+		sys.exit(1)
 	else:
 		if options.verbose:
 			print "All buckets are current."
-		os.exit(0)
+		sys.exit(0)
 
 
 if __name__ == "__main__":
