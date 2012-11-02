@@ -20,3 +20,4 @@ TODO
  * Code cleanup
   X Move login into main()
   * Refactor into smaller, modular methods
+ * Multi-thread the searches
