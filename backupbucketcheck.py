@@ -34,6 +34,8 @@ def check_bucket(bucket):
 	Find the youngest (most recently modified) file
 		Return early if we find one that's new enough - no need to waste time.
 	"""
+	global minimum_date
+	global options
 	num_files = 0	# Informational
 	for k in bucket.list():
 		num_files += 1	# Informational
@@ -69,6 +71,8 @@ def get_num_keys_in_bucket(bucket):
 	return num_files
 
 def main():
+	global minimum_date
+	global options
 	parser = optparse.OptionParser(usage="usage: %prog [options]", version="%prog 1.1")
 	parser.add_option("-v", "--verbose", 
 	                  action="count", dest="verbose", default=0,
