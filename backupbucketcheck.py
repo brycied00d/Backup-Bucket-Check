@@ -248,7 +248,7 @@ def main():
 					)
 				conn.getresponse()
 			except Exception as e:
-				print "Exception while pushing notification to Pushover: %s", e
+				print "Exception while pushing notification to Pushover: %s" % e
 				pass
 		
 		if email:
