@@ -278,7 +278,7 @@ def main():
 
 		if email_to and email_from and email_subject:
 			try:
-				sendEmail(to=email_to, from=email_from, message=message, subject=email_subject)
+				sendEmail(email_to=email_to, email_from=email_from, email_msg=message, email_subject=email_subject)
 			except Exception as e:
 				print "Exception while sending email notification: %s" % e
 				pass
