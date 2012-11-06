@@ -17,8 +17,6 @@
 # PERFORMANCE OF THIS SOFTWARE.
 
 import optparse
-from boto.s3.connection import S3Connection
-import boto
 from datetime import datetime
 from datetime import timedelta
 import ConfigParser
@@ -143,6 +141,8 @@ def main():
 	
 	# Connecting to AWS
 	try:
+		from boto.s3.connection import S3Connection
+		import boto
 		conn = S3Connection( \
 			Config.get('AWS', 'AWS_ACCESS_KEY_ID'), \
 			Config.get('AWS', 'AWS_SECRET_ACCESS_KEY') \
@@ -154,6 +154,9 @@ def main():
 		conn = boto.connect_s3()
 		if options.verbose >1:
 			print "Connected using environment AWS keys"
+	except ImportError as e:
+		print "You need the BOTO library installed."
+		sys.exit(1)
 	
 	# Read in the ex/include from Config
 	buckets_exclude = []
