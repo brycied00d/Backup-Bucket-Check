@@ -69,6 +69,8 @@ def get_num_keys_in_bucket(bucket):
 	return num_files
 
 def sendEmail(email_to, email_from, email_subject, email_msg):
+	import smtplib
+	from email.mime.text import MIMEText
 	msg = MIMEText(email_msg)
 	msg['Subject'] = email_subject
 	msg['From'] = email_from
@@ -82,6 +84,8 @@ def sendEmail(email_to, email_from, email_subject, email_msg):
 		raise
 
 def sendPushover(user, appkey, message):
+	import httplib
+	import urllib
 	try:
 		pushover = httplib.HTTPSConnection("api.pushover.net:443")
 		pushover.request("POST", "/1/messages.json",
