@@ -68,6 +68,19 @@ def get_num_keys_in_bucket(bucket):
 		num_files += 1	# Informational
 	return num_files
 
+def sendEmail(email_to, email_from, email_subject, email_msg):
+	msg = MIMEText(email_msg)
+	msg['Subject'] = email_subject
+	msg['From'] = email_from
+	msg['To'] = email_to
+	try:
+		s = smtplib.SMTP()
+		s.sendmail(email_from, email_to, msg.as_string())
+		s.quit()
+		return
+	except Exception as e:
+		raise
+
 def main():
 	global minimum_date
 	global options
@@ -119,10 +132,15 @@ def main():
 	
 	# Load the smtp stuff only if the user's configured an email address
 	try:
-		email = False
+		email_to = False
+		email_from = False
+		email_subject = False
 		## Probably need _to, _from, maybe _subject
-		email = Config.get('Notification', 'email')
-		#import httplib, urllib
+		email_to = Config.get('Notification', 'email_to')
+		email_from = Config.get('Notification', 'email_from')
+		email_subject = Config.get('Notification', 'email_subject')
+		import smtplib
+		from email.mime.text import MIMEText
 		if options.verbose >1:
 			print "Email support loaded."
 	except ConfigParser.Error as e:
@@ -250,10 +268,14 @@ def main():
 			except Exception as e:
 				print "Exception while pushing notification to Pushover: %s" % e
 				pass
-		
-		if email:
-			if options.verbose:
-				print "I'd send an email, if I knew how to. Sorry chap."
+
+		if email_to and email_from and email_subject:
+			try:
+				sendEmail(to=email_to, from=email_from, message=message, subject=email_subject)
+			except Exception as e:
+				print "Exception while sending email notification: %s" % e
+				pass
+
 		sys.exit(1)
 	else:
 		if options.verbose:

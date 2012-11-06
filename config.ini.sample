@@ -6,7 +6,9 @@
 
 [Notification]
 ; Where to send notifications
-email = 
+email_to = 
+email_from = 
+email_subject = 
 pushover = 
 pushover_appkey = 
 ; Uses Python's string.format(), so you could do some fancy formatting if you wanted
