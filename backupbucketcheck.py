@@ -81,6 +81,22 @@ def sendEmail(email_to, email_from, email_subject, email_msg):
 	except Exception as e:
 		raise
 
+def sendPushover(user, appkey, message):
+	try:
+		pushover = httplib.HTTPSConnection("api.pushover.net:443")
+		pushover.request("POST", "/1/messages.json",
+			urllib.urlencode({
+				"token": appkey,
+				"user": user,
+				"message": message,
+				}),
+			{ "Content-type": "application/x-www-form-urlencoded" }
+			)
+		conn.getresponse()
+		return
+	except Exception as e:
+		raise
+
 def main():
 	global minimum_date
 	global options
@@ -255,16 +271,7 @@ def main():
 		
 		if pushover_user and pushover_appkey:
 			try:
-				pushover = httplib.HTTPSConnection("api.pushover.net:443")
-				pushover.request("POST", "/1/messages.json",
-					urllib.urlencode({
-						"token": pushover_appkey,
-						"user": pushover_user,
-						"message": message,
-						}),
-					{ "Content-type": "application/x-www-form-urlencoded" }
-					)
-				conn.getresponse()
+				sendPushover(user=pushover_user, appkey=pushover_appkey, message=message)
 			except Exception as e:
 				print "Exception while pushing notification to Pushover: %s" % e
 				pass
