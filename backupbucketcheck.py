@@ -96,7 +96,7 @@ def sendPushover(user, appkey, message):
 				}),
 			{ "Content-type": "application/x-www-form-urlencoded" }
 			)
-		conn.getresponse()
+		pushover.getresponse()
 		return
 	except Exception as e:
 		raise
