@@ -76,7 +76,7 @@ def sendEmail(email_to, email_from, email_subject, email_msg):
 	msg['From'] = email_from
 	msg['To'] = email_to
 	try:
-		s = smtplib.SMTP()
+		s = smtplib.SMTP('localhost')
 		s.sendmail(email_from, email_to, msg.as_string())
 		s.quit()
 		return
