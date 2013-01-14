@@ -240,8 +240,8 @@ def main():
                 print "Checking bucket %s" % bucket_include
             bucket = conn.get_bucket(bucket_include)
             if not check_bucket(bucket):
-                print "Error! Bucket %s failed check, no keys modified " +\
-                      "since %s." % (bucket_include, minimum_date)
+                print "Error! Bucket %s failed check, " % bucket_include +\
+                      "no keys modified since %s." % minimum_date
                 buckets_error.append(bucket_include)
             else:
                 if options.verbose:
@@ -265,8 +265,8 @@ def main():
             if options.verbose:
                 print "Checking bucket %s" % bucket.name
             if not check_bucket(bucket):
-                print "Error! Bucket %s failed check, no keys modified " +\
-                      "since %s." % (bucket.name, minimum_date)
+                print "Error! Bucket %s failed check, " % bucket.name +\
+                      "no keys modified since %s." % minimum_date
                 buckets_error.append(bucket.name)
             else:
                 if options.verbose:
