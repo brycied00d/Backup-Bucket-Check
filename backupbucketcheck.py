@@ -249,11 +249,16 @@ def main():
                     print "Bucket %s passed check." % bucket_include
             # Verbosity, I guess
             if options.verbose > 1:
-                print " * %s (%s)  %i keys.\n" %\
-                      (bucket.name,
-                       iso8601_to_datetime(\
-                           get_youngest_key_in_bucket(bucket).last_modified),
-                       get_num_keys_in_bucket(bucket))
+                try:
+                    print " * %s (%s)  %i keys.\n" %\
+                          (bucket.name,
+                           iso8601_to_datetime(\
+                               get_youngest_key_in_bucket(bucket).last_modified),
+                           get_num_keys_in_bucket(bucket))
+                except:
+                    # Quietly ignore. get_youngest_key_in_bucket returns 0 when no keys in the bucket
+                    # AttributeError: 'int' object has no attribute 'last_modified'
+                    pass
     else:
         buckets = conn.get_all_buckets()
         if options.verbose:
@@ -274,11 +279,16 @@ def main():
                     print "Bucket %s passed check." % bucket.name
             # Verbosity, I guess
             if options.verbose > 1:
-                print " * %s (%s) %i keys.\n" %\
-                      (bucket.name,
-                       iso8601_to_datetime(\
-                           get_youngest_key_in_bucket(bucket).last_modified),
-                       get_num_keys_in_bucket(bucket))
+                try:
+                    print " * %s (%s) %i keys.\n" %\
+                          (bucket.name,
+                           iso8601_to_datetime(\
+                               get_youngest_key_in_bucket(bucket).last_modified),
+                           get_num_keys_in_bucket(bucket))
+                except:
+                    # Quietly ignore. get_youngest_key_in_bucket returns 0 when no keys in the bucket
+                    # AttributeError: 'int' object has no attribute 'last_modified'
+                    pass
 
     if options.verbose:
         print "Check complete, %d buckets failed." %\
@@ -289,13 +299,18 @@ def main():
         # Build the list of failed buckets
         buckets_error_string = ""
         for bucket_error in buckets_error:
-            buckets_error_string += " * %s (%s)\\n" % (bucket_error, \
-                iso8601_to_datetime(\
-                    get_youngest_key_in_bucket(\
-                        conn.get_bucket(bucket_error) \
-                    ).last_modified \
-                    ) \
-                )
+            try:
+                buckets_error_string += " * %s (%s)\\n" % (bucket_error, \
+                    iso8601_to_datetime(\
+                        get_youngest_key_in_bucket(\
+                            conn.get_bucket(bucket_error) \
+                        ).last_modified \
+                        ) \
+                    )
+            except:
+                # Quietly ignore. get_youngest_key_in_bucket returns 0 when no keys in the bucket
+                # AttributeError: 'int' object has no attribute 'last_modified'
+                pass
         message = configuration_file.get('Notification', 'template').\
                     format(since=minimum_date, age=min_age,
                            failedbuckets=buckets_error_string)
