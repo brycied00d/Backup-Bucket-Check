@@ -24,3 +24,4 @@ age = 7	; Threshold, in days (required)
 ; Advanced: Merge the following values into Boto's configuration
 ;[Boto]
 ;debug = 2
+;is_secure = False
