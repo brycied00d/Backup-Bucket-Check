@@ -181,11 +181,16 @@ def main():
         # Quietly pass through if Pushover isn't configured
         pass
 
+    try:
+        import boto
+    except ImportError as e:
+        print "You need the BOTO library installed."
+        sys.exit(1)
+
     # Advanced use - include any [Boto] configs as configuration for boto
     if configuration_file.has_section('Boto'):
         if options.verbose > 2:
             print "Merging [Boto] from our configuration into boto's"
-        import boto
         boto.config.add_section('Boto')
         for k, v in configuration_file.items('Boto'):
             if options.verbose > 2:
@@ -195,7 +200,6 @@ def main():
     # Connecting to AWS
     try:
         from boto.s3.connection import S3Connection
-        import boto
         conn = S3Connection( \
             configuration_file.get('AWS', 'AWS_ACCESS_KEY_ID'), \
             configuration_file.get('AWS', 'AWS_SECRET_ACCESS_KEY') \
@@ -208,9 +212,6 @@ def main():
         conn = boto.connect_s3()
         if options.verbose > 1:
             print "Connected using environment AWS keys"
-    except ImportError as e:
-        print "You need the BOTO library installed."
-        sys.exit(1)
 
     # Read in the ex/include from configuration_file
     buckets_exclude = []
